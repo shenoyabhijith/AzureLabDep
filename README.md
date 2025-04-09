@@ -1,0 +1,2 @@
+Azure Lab deployment script
+
