@@ -5,17 +5,57 @@ set -e
 
 echo "Starting deployment of Azure Movie Database Architecture..."
 
+# Generate a unique suffix for Cosmos DB account (lowercase letters and numbers)
+RANDOM_SUFFIX=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)
+COSMOS_ACCOUNT="moviedatabase${RANDOM_SUFFIX}"
+echo "Using unique Cosmos DB account name: $COSMOS_ACCOUNT"
+
+# Check Azure CLI version
+echo "Azure CLI version: $(az --version | head -n 1)"
+
+# Check subscription status
+echo "Checking Azure subscription..."
+az account show
+
 # Variables
 RESOURCE_GROUP=$1
 LOCATION="eastus"
 STORAGE_ACCOUNT="moviedatabasesa"
-COSMOS_ACCOUNT="moviedatabase"
 DB_NAME="moviedb"
 CONTAINER_NAME="movies"
 FUNCTION_APP="moviedbfunc"
 PYTHON_VERSION="3.9"
 FUNCTIONS_VERSION="4"
 
+# Function to retry commands with exponential backoff
+retry_command() {
+    local max_attempts=5
+    local timeout=30
+    local attempt=1
+    local exitCode=0
+
+    while [[ $attempt -le $max_attempts ]]
+    do
+        echo "Attempt $attempt of $max_attempts: $@"
+        
+        "$@"
+        exitCode=$?
+
+        if [[ $exitCode == 0 ]]
+        then
+            return 0
+        fi
+
+        echo "Command failed with exit code $exitCode. Retrying in $timeout seconds..."
+        sleep $timeout
+        
+        # Exponential backoff with jitter
+        timeout=$((timeout * 2))
+        attempt=$((attempt + 1))
+    done
+
+    return $exitCode
+}
 
 # Create storage account
 echo "Creating storage account..."
@@ -43,12 +83,13 @@ WEBSITE_URL=$(az storage account show \
 
 echo "Static website URL: $WEBSITE_URL"
 
-# Create Cosmos DB account
+# Create Cosmos DB account with verbose output
 echo "Creating Cosmos DB account..."
 az cosmosdb create \
   --name $COSMOS_ACCOUNT \
   --resource-group $RESOURCE_GROUP \
-  --locations regionName=$LOCATION failoverPriority=0 isZoneRedundant=False
+  --locations regionName=$LOCATION failoverPriority=0 isZoneRedundant=False \
+  --debug
 
 # Function to check Cosmos DB status
 check_cosmos_status() {
@@ -66,27 +107,27 @@ while true; do
     status=$(check_cosmos_status)
     echo "Current status: $status"
     if [ "$status" == "Succeeded" ]; then
-        echo "Cosmos DB is now online"
+        echo "Cosmos DB provisioning succeeded"
         break
     fi
     echo "Waiting 30 seconds before checking again..."
     sleep 30
 done
 
-# Additional wait to ensure all services are ready
-echo "Waiting additional 60 seconds for all services to be ready..."
-sleep 60
+# Additional wait to ensure service is fully operational
+echo "Waiting additional 3 minutes for all services to be fully operational..."
+sleep 180
 
 # Create database
 echo "Creating database..."
-az cosmosdb sql database create \
+retry_command az cosmosdb sql database create \
   --account-name $COSMOS_ACCOUNT \
   --resource-group $RESOURCE_GROUP \
   --name $DB_NAME
 
 # Create container
 echo "Creating container..."
-az cosmosdb sql container create \
+retry_command az cosmosdb sql container create \
   --account-name $COSMOS_ACCOUNT \
   --resource-group $RESOURCE_GROUP \
   --database-name $DB_NAME \
