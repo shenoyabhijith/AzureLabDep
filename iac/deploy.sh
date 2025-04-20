@@ -213,10 +213,21 @@ except Exception as e:
 print("Data import completed.")
 EOF
 
-# Install Azure Cosmos DB Python package and run import script
 echo "Installing dependencies and importing data..."
-pip install azure-cosmos
-COSMOS_ENDPOINT=$COSMOS_ENDPOINT COSMOS_KEY=$COSMOS_KEY DB_NAME=$DB_NAME CONTAINER_NAME=$CONTAINER_NAME python import_movies.py
+
+# Ensure ~/.local/bin is in PATH so newly installed tools are found
+export PATH="$HOME/.local/bin:$PATH"
+
+# Upgrade pip in the user site and install Cosmos SDK (+deps)
+python -m pip install --user --upgrade pip
+python -m pip install --user "azure-cosmos>=4.8.0"
+
+# Run the import script with the same interpreter
+COSMOS_ENDPOINT=$COSMOS_ENDPOINT \
+COSMOS_KEY=$COSMOS_KEY \
+DB_NAME=$DB_NAME \
+CONTAINER_NAME=$CONTAINER_NAME \
+python import_movies.py
 
 # Create static website files
 echo "Creating static website files..."
