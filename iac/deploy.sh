@@ -20,7 +20,7 @@ az account show
 # Variables
 RESOURCE_GROUP=$1
 LOCATION="eastus"
-STORAGE_ACCOUNT="moviedatabasesa"
+STORAGE_ACCOUNT="moviedatabasesa${RANDOM_SUFFIX}"
 DB_NAME="moviedb"
 CONTAINER_NAME="movies"
 FUNCTION_APP="moviedbfunc"
