@@ -24,7 +24,7 @@ STORAGE_ACCOUNT="moviedatabasesa${RANDOM_SUFFIX}"
 DB_NAME="moviedb"
 CONTAINER_NAME="movies"
 FUNCTION_APP="moviedbfunc"
-PYTHON_VERSION="3.9"
+PYTHON_VERSION="3.12"
 FUNCTIONS_VERSION="4"
 
 # Function to retry commands with exponential backoff
