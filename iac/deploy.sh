@@ -55,7 +55,7 @@ retry_command() {
     done
 
     return $exitCode
-}
+} 
 
 # Create storage account
 echo "Creating storage account..."
